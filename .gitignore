@@ -1,0 +1,78 @@
+# dependencias
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# next.js
+/.next/
+/out/
+.next
+next-env.d.ts
+
+# produccion
+/build
+/dist
+
+# testing
+/coverage
+
+# typescript
+*.tsbuildinfo
+
+# variables de entorno (Vercel las gestiona desde su panel)
+.env
+.env*.local
+.env.development
+.env.production
+.env.test
+!.env.example
+
+# vercel
+.vercel
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+logs
+*.log
+
+# cache de herramientas
+.eslintcache
+.turbo
+.cache
+.parcel-cache
+.swc/
+
+# editores / IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+
+# sistema operativo
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# certificados / claves
+*.pem
+*.key
+
+# claude code (config local, no compartida)
+.claude/settings.local.json
+.claude/*.local.json
