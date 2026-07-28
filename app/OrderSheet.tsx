@@ -59,7 +59,15 @@ const OrderSheet = forwardRef<HTMLDivElement, Props>(function OrderSheet(
                   )}
                 </div>
               </td>
-              <td>{item.size}</td>
+              <td>
+                <div className="size-stack">
+                  {item.sizes
+                    .filter((s) => s.trim() !== '')
+                    .map((s, i) => (
+                      <span key={i}>{s}</span>
+                    ))}
+                </div>
+              </td>
               <td>{item.name}</td>
               <td>{item.dorsal}</td>
               <td>

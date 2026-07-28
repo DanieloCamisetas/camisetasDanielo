@@ -82,7 +82,12 @@ export default function Page() {
     setItems((prev) => {
       const idx = prev.findIndex((it) => it.id === id);
       if (idx < 0) return prev;
-      const copy = { ...prev[idx], id: uid(), patches: [...prev[idx].patches] };
+      const copy = {
+        ...prev[idx],
+        id: uid(),
+        sizes: [...prev[idx].sizes],
+        patches: [...prev[idx].patches],
+      };
       const next = [...prev];
       next.splice(idx + 1, 0, copy);
       return next;
@@ -96,6 +101,28 @@ export default function Page() {
       [next[idx], next[target]] = [next[target], next[idx]];
       return next;
     });
+
+  /* --- Tallas (varias por artículo) --- */
+  const setSize = (id: string, index: number, value: string) =>
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === id
+          ? { ...it, sizes: it.sizes.map((s, i) => (i === index ? value : s)) }
+          : it
+      )
+    );
+  const addSize = (id: string) =>
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, sizes: [...it.sizes, ""] } : it))
+    );
+  const removeSize = (id: string, index: number) =>
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === id
+          ? { ...it, sizes: it.sizes.filter((_, i) => i !== index) }
+          : it
+      )
+    );
 
   /* --- Parches (varios por artículo) --- */
   const setPatch = (id: string, index: number, value: string) =>
@@ -199,7 +226,7 @@ export default function Page() {
   const filledItems = items.filter(
     (it) =>
       it.image ||
-      it.size ||
+      it.sizes.some((s) => s.trim() !== "") ||
       it.name ||
       it.dorsal ||
       it.patches.some((p) => p.trim() !== "") ||
@@ -338,14 +365,37 @@ export default function Page() {
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <Field label="Talla">
-                      <input
-                        list="sizes"
-                        value={item.size}
-                        onChange={(e) => patchItem(item.id, { size: e.target.value })}
-                        placeholder="S, XL, 28…"
-                        className="input"
-                      />
+                    <Field label={item.sizes.length > 1 ? "Tallas" : "Talla"}>
+                      <div className="flex flex-col gap-1.5">
+                        {item.sizes.map((s, i) => (
+                          <div key={i} className="flex items-center gap-1">
+                            <input
+                              list="sizes"
+                              value={s}
+                              onChange={(e) => setSize(item.id, i, e.target.value)}
+                              placeholder="S, XL, 28…"
+                              className="input min-w-0 flex-1"
+                            />
+                            {item.sizes.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => removeSize(item.id, i)}
+                                className="shrink-0 rounded-md px-1.5 py-1 text-xs text-zinc-400 transition hover:bg-red-100 hover:text-red-600"
+                                title="Quitar talla"
+                              >
+                                ✕
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => addSize(item.id)}
+                          className="self-start rounded-md border border-dashed border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:border-amber-500 hover:text-amber-700"
+                        >
+                          + Añadir talla
+                        </button>
+                      </div>
                     </Field>
                     <Field label="Nombre">
                       <input

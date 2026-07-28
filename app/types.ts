@@ -1,7 +1,7 @@
 export type OrderItem = {
   id: string;
   image: string; // URL o data-URL
-  size: string;
+  sizes: string[]; // 1..n tallas para el mismo artículo
   name: string;
   dorsal: string;
   patches: string[]; // 0..n parches (URL o data-URL)
@@ -28,7 +28,7 @@ export type Customer = {
 export const emptyItem = (id: string): OrderItem => ({
   id,
   image: "",
-  size: "",
+  sizes: [""],
   name: "",
   dorsal: "",
   patches: [""],

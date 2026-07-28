@@ -141,6 +141,15 @@ body {
   display: block;
 }
 
+/* Varias tallas por artículo: una debajo de otra, centradas. */
+.sheet .size-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
 .sheet .patch-stack {
   max-width: 200px;
   display: flex;
