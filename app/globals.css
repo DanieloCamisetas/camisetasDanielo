@@ -53,8 +53,14 @@ body {
 /*  ORDER SHEET  — plain hex only, no Tailwind tokens, so html-to-image */
 /*  captures it 1:1. This is the artifact suppliers actually receive.    */
 /* ------------------------------------------------------------------ */
+/* La hoja crece con su contenido y nunca baja del diseño base (660px). Así un
+   precio con sumas largas ensancha su columna en vez de salirse de la hoja y
+   quedar cortado en el PNG. Sin max-width: un tope volvería a recortar.
+   Lo que sí puede partirse en varias líneas (nombres, notas, dirección) está
+   limitado más abajo para que no dispare el ancho. */
 .sheet {
-  width: 660px;
+  width: fit-content;
+  min-width: 660px;
   background: #ffffff;
   color: #000000;
   font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
@@ -65,9 +71,11 @@ body {
 .sheet table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
+/* Anchos de referencia. Con table-layout:auto son solo una preferencia:
+   si el contenido necesita más, el navegador ensancha la columna. */
 .sheet col.c-img { width: 150px; }
 .sheet col.c-size { width: 64px; }
 .sheet col.c-name { width: 134px; }
@@ -95,7 +103,10 @@ body {
   word-break: break-word;
 }
 
+/* Ancho fijo en px (no %): con table-layout:auto una imagen sin ancho
+   definido arrastraría la columna hasta su tamaño natural. */
 .sheet .cell-media {
+  width: 142px;
   height: 104px;
   display: flex;
   align-items: center;
@@ -111,11 +122,16 @@ body {
 }
 
 .sheet .patch-stack {
+  max-width: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
+}
+
+.sheet .patch-stack .cell-media {
+  width: 128px;
 }
 
 .sheet .patch-note {
@@ -124,6 +140,8 @@ body {
   white-space: pre-wrap;
 }
 
+/* El nowrap es lo que obliga a la columna a ensancharse hasta caber el
+   precio entero (sumas incluidas) en vez de recortarlo. */
 .sheet .price-cell {
   font-weight: 700;
   white-space: nowrap;
@@ -136,7 +154,10 @@ body {
   padding: 5px 4px;
 }
 
+/* Las filas a todo el ancho no deben decidir el ancho de la hoja: su texto
+   se parte en varias líneas en vez de estirar las columnas de arriba. */
 .sheet .extra-stack {
+  max-width: 640px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -173,6 +194,10 @@ body {
 
 .sheet .customer td b {
   font-weight: 700;
+}
+
+.sheet .customer-block {
+  max-width: 640px;
 }
 
 .sheet .empty-hint {

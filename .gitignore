@@ -76,3 +76,5 @@ $RECYCLE.BIN/
 # claude code (config local, no compartida)
 .claude/settings.local.json
 .claude/*.local.json
+
+.vercel

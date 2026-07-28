@@ -100,41 +100,43 @@ const OrderSheet = forwardRef<HTMLDivElement, Props>(function OrderSheet(
           {hasCustomer ? (
             <tr className="customer">
               <td colSpan={6}>
-                {customer.name ? (
-                  <div>
-                    <b>Nombre:</b> {customer.name}
-                  </div>
-                ) : null}
-                {customer.phone ? (
-                  <div>
-                    <b>Teléfono:</b> {customer.phone}
-                  </div>
-                ) : null}
-                {customer.country ? (
-                  <div>
-                    <b>Nación:</b> {customer.country}
-                  </div>
-                ) : null}
-                {customer.province ? (
-                  <div>
-                    <b>Provincia:</b> {customer.province}
-                  </div>
-                ) : null}
-                {customer.city ? (
-                  <div>
-                    <b>Municipio:</b> {customer.city}
-                  </div>
-                ) : null}
-                {customer.address ? (
-                  <div>
-                    <b>DIRECCIÓN:</b> {customer.address}
-                  </div>
-                ) : null}
-                {customer.postalCode ? (
-                  <div>
-                    <b>Código Postal:</b> {customer.postalCode}
-                  </div>
-                ) : null}
+                <div className="customer-block">
+                  {customer.name ? (
+                    <div>
+                      <b>Nombre:</b> {customer.name}
+                    </div>
+                  ) : null}
+                  {customer.phone ? (
+                    <div>
+                      <b>Teléfono:</b> {customer.phone}
+                    </div>
+                  ) : null}
+                  {customer.country ? (
+                    <div>
+                      <b>Nación:</b> {customer.country}
+                    </div>
+                  ) : null}
+                  {customer.province ? (
+                    <div>
+                      <b>Provincia:</b> {customer.province}
+                    </div>
+                  ) : null}
+                  {customer.city ? (
+                    <div>
+                      <b>Municipio:</b> {customer.city}
+                    </div>
+                  ) : null}
+                  {customer.address ? (
+                    <div>
+                      <b>DIRECCIÓN:</b> {customer.address}
+                    </div>
+                  ) : null}
+                  {customer.postalCode ? (
+                    <div>
+                      <b>Código Postal:</b> {customer.postalCode}
+                    </div>
+                  ) : null}
+                </div>
               </td>
             </tr>
           ) : null}

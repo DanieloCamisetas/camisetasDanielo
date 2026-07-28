@@ -12,7 +12,9 @@ import {
   emptyItem,
 } from "./types";
 
-const SHEET_WIDTH = 600;
+// Debe coincidir con el min-width de .sheet en globals.css: la hoja puede
+// crecer por encima de este valor si el contenido lo necesita.
+const SHEET_MIN_WIDTH = 660;
 const SIZES = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "16", "18", "20", "22", "24", "26", "28"];
 
 const uid = () =>
@@ -27,19 +29,39 @@ export default function Page() {
 
   const [status, setStatus] = useState<{ msg: string; tone: "ok" | "err" } | null>(null);
   const [busy, setBusy] = useState<null | "png" | "copy">(null);
-  const [scale, setScale] = useState(1);
+  const [preview, setPreview] = useState({
+    scale: 1,
+    width: SHEET_MIN_WIDTH,
+    height: 0,
+  });
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
 
-  /* --- Ajuste de la vista previa al ancho disponible --- */
+  /* --- Ajuste de la vista previa al ancho disponible ---
+     Se mide el tamaño REAL de la hoja (offsetWidth/Height no se ven afectados
+     por el transform) y se reduce solo la visualización. Nunca se escala el
+     nodo que se captura: html-to-image mide su ancho para recortar el PNG. */
   useEffect(() => {
-    const el = frameRef.current;
-    if (!el) return;
-    const update = () => setScale(Math.min(1, el.clientWidth / SHEET_WIDTH));
+    const frame = frameRef.current;
+    const sheet = sheetRef.current;
+    if (!frame || !sheet) return;
+
+    const update = () => {
+      const width = sheet.offsetWidth;
+      const height = sheet.offsetHeight;
+      const scale = Math.min(1, frame.clientWidth / width);
+      setPreview((prev) =>
+        prev.width === width && prev.height === height && prev.scale === scale
+          ? prev
+          : { scale, width, height },
+      );
+    };
+
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
+    ro.observe(frame);
+    ro.observe(sheet);
     return () => ro.disconnect();
   }, []);
 
@@ -531,18 +553,34 @@ export default function Page() {
 
             <p className="eyebrow mb-2">Vista previa · alta resolución (×3)</p>
 
-            <div
-              ref={frameRef}
-              className="max-h-[calc(100vh-220px)] overflow-auto rounded-lg border border-zinc-200 bg-zinc-100 p-3"
-            >
-              {/* zoom escala solo la visualización; la captura usa el nodo a tamaño real */}
-              <div style={{ zoom: scale }}>
-                <OrderSheet
-                  ref={sheetRef}
-                  items={items}
-                  extras={extras}
-                  customer={customer}
-                />
+            <div className="max-h-[calc(100vh-220px)] overflow-auto rounded-lg border border-zinc-200 bg-zinc-100 p-3">
+              <div ref={frameRef}>
+                {/* Reserva el hueco que ocupa la hoja ya escalada */}
+                <div
+                  style={{
+                    width: preview.width * preview.scale,
+                    height: preview.height
+                      ? preview.height * preview.scale
+                      : undefined,
+                  }}
+                >
+                  {/* transform escala solo la visualización; la hoja conserva
+                      su tamaño real (max-content evita que se comprima) */}
+                  <div
+                    style={{
+                      width: "max-content",
+                      transform: `scale(${preview.scale})`,
+                      transformOrigin: "top left",
+                    }}
+                  >
+                    <OrderSheet
+                      ref={sheetRef}
+                      items={items}
+                      extras={extras}
+                      customer={customer}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
