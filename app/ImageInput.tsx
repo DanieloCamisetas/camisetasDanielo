@@ -9,7 +9,7 @@ type Props = {
   onRemove?: () => void;
 };
 
-function readFileAsDataURL(file: File): Promise<string> {
+export function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
@@ -38,8 +38,9 @@ export default function ImageInput({ label, value, onChange, onRemove }: Props) 
           <button
             type="button"
             onClick={onRemove}
-            className="rounded px-1.5 text-xs text-zinc-400 transition hover:text-red-600"
-            title="Quitar este parche"
+            className="-my-1 flex h-8 w-8 items-center justify-center rounded-md text-sm text-zinc-400 transition hover:bg-red-100 hover:text-red-600"
+            title="Quitar"
+            aria-label="Quitar"
           >
             ✕
           </button>
@@ -48,7 +49,7 @@ export default function ImageInput({ label, value, onChange, onRemove }: Props) 
 
       <div className="flex items-start gap-2">
         {/* Preview */}
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-zinc-300 bg-zinc-50">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-zinc-300 bg-zinc-50">
           {value ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -69,7 +70,7 @@ export default function ImageInput({ label, value, onChange, onRemove }: Props) 
             placeholder="Pega una URL…"
             value={value.startsWith("data:") ? "" : value}
             onChange={(e) => onChange(e.target.value)}
-            className="w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+            className="w-full rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-base outline-none sm:text-sm transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
           />
 
           <div className="flex items-center gap-1.5">
@@ -83,9 +84,9 @@ export default function ImageInput({ label, value, onChange, onRemove }: Props) 
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:border-amber-500 hover:text-amber-700"
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:border-amber-500 hover:text-amber-700"
             >
-              Subir archivo
+              📷 Subir foto
             </button>
             {value ? (
               <button
@@ -94,7 +95,7 @@ export default function ImageInput({ label, value, onChange, onRemove }: Props) 
                   onChange("");
                   if (fileRef.current) fileRef.current.value = "";
                 }}
-                className="rounded-md px-2 py-1 text-xs font-medium text-zinc-400 transition hover:text-red-600"
+                className="rounded-md px-2 py-2 text-sm font-medium text-zinc-400 transition hover:text-red-600"
               >
                 Quitar
               </button>

@@ -50,12 +50,20 @@ const OrderSheet = forwardRef<HTMLDivElement, Props>(function OrderSheet(
           {items.map((item) => (
             <tr key={item.id}>
               <td>
-                <div className="cell-media">
-                  {item.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.image} alt="" crossOrigin="anonymous" />
+                <div className="img-stack">
+                  {item.images.some((src) => src.trim() !== '') ? (
+                    item.images
+                      .filter((src) => src.trim() !== '')
+                      .map((src, i) => (
+                        <div className="cell-media" key={i}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={src} alt="" crossOrigin="anonymous" />
+                        </div>
+                      ))
                   ) : (
-                    <span className="empty-hint">—</span>
+                    <div className="cell-media">
+                      <span className="empty-hint">—</span>
+                    </div>
                   )}
                 </div>
               </td>

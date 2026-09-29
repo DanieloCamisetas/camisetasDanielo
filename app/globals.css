@@ -30,13 +30,21 @@ body {
   border-radius: 6px;
   border: 1px solid #d4d4d8;
   background: #ffffff;
-  padding: 6px 10px;
-  font-size: 14px;
+  padding: 8px 10px;
+  /* 16px en móvil: por debajo, iOS hace zoom al enfocar el campo */
+  font-size: 16px;
   color: var(--ink);
   outline: none;
   transition:
     border-color 0.15s,
     box-shadow 0.15s;
+}
+
+@media (min-width: 640px) {
+  .input {
+    padding: 6px 10px;
+    font-size: 14px;
+  }
 }
 
 .input::placeholder {
@@ -139,6 +147,14 @@ body {
   max-height: 104px;
   object-fit: contain;
   display: block;
+}
+
+/* Varias imágenes de producto: una debajo de otra. */
+.sheet .img-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Varias tallas por artículo: una debajo de otra, centradas. */

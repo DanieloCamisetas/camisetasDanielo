@@ -1,6 +1,6 @@
 export type OrderItem = {
   id: string;
-  image: string; // URL o data-URL
+  images: string[]; // 1..n imágenes del producto (URL o data-URL)
   sizes: string[]; // 1..n tallas para el mismo artículo
   name: string;
   dorsal: string;
@@ -15,6 +15,11 @@ export type ExtraRow = {
   image: string; // URL o data-URL (opcional)
 };
 
+export type PatchOption = {
+  src: string; // ruta en /public
+  label: string;
+};
+
 export type Customer = {
   name: string;
   phone: string;
@@ -27,7 +32,7 @@ export type Customer = {
 
 export const emptyItem = (id: string): OrderItem => ({
   id,
-  image: "",
+  images: [""],
   sizes: [""],
   name: "",
   dorsal: "",
