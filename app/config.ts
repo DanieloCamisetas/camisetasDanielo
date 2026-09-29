@@ -9,10 +9,10 @@
  * Ejemplo España: "34600111222". Déjalo vacío ("") para elegir el contacto
  * en cada envío.
  */
-export const WHATSAPP_NUMBER = "34600000000";
+export const WHATSAPP_NUMBER = '34600000000';
 
 /** Texto que acompaña al chat de WhatsApp cuando se abre en ordenador. */
-export const WHATSAPP_MESSAGE = "Hola, te paso la hoja de pedido 👕";
+export const WHATSAPP_MESSAGE = 'Hola, te paso la hoja de pedido 👕';
 
 /**
  * Nombres bonitos para los parches de la carpeta /public.
@@ -21,11 +21,11 @@ export const WHATSAPP_MESSAGE = "Hola, te paso la hoja de pedido 👕";
  * con su nombre de archivo.
  */
 export const PATCH_LABELS: Record<string, string> = {
-  campeonesmundial: "Campeones del Mundo",
-  champions0: "Champions",
-  liga: "Liga",
-  mundialblanco: "Mundial blanco",
-  mundialdorado: "Mundial dorado",
-  parchechampions: "Parche Champions",
-  parchechampions2: "Parche Champions 2",
+  campeonesmundial: 'Campeones del Mundo',
+  champions0: 'Champions',
+  liga: 'Liga',
+  mundialblanco: 'Camiseta Oscura',
+  mundialdorado: 'Camiseta Clara',
+  parchechampions: 'Parche Champions',
+  parchechampions2: 'Parche Champions 2',
 };
