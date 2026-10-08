@@ -7,6 +7,8 @@ export type OrderItem = {
   patches: string[]; // 0..n parches (URL o data-URL)
   note: string; // texto opcional en la columna de detalle
   price: string; // precio (texto libre: "12", "12€", etc.)
+  /** Si sale del inventario: qué fila es y si ya se descontó del stock. */
+  stock?: { key: InvVariantKey; label: string; done?: boolean };
 };
 
 export type ExtraRow = {
@@ -61,7 +63,8 @@ export type InvProduct = {
   team: string; // EQUIPO
   season: string; // TEMPORADA
   kit: string; // MODELO (Home, Away…)
-  photo: string; // data-URL JPEG pequeña
+  photo: string; // data-URL solo al cambiarla; la lista no la trae (ver photoV)
+  photoV?: string; // versión de la foto: /api/foto/<id>?v=<photoV>
   barcode: string; // código de la etiqueta (varias camisetas pueden compartirlo)
   cost: string; // COSTE (€)
   price: string; // PVP (€)
@@ -78,6 +81,33 @@ export type InvVariantKey = {
 };
 
 export type InvVariant = InvVariantKey & { id: string; qty: number };
+
+/** Una unidad apartada para un cliente (cuenta en stock, pero no está disponible). */
+export type InvReservation = {
+  id: string;
+  variantId: string;
+  productId: string;
+  customer: string;
+  until: string; // YYYY-MM-DD o ""
+  note: string;
+  user: string;
+  createdAt: string;
+};
+
+/** Un movimiento del historial. */
+export type InvMovement = {
+  id: string;
+  at: string;
+  user: string;
+  kind: "count" | "sale" | "reserve" | "unreserve";
+  productId: string;
+  variantId: string;
+  productTitle: string;
+  label: string;
+  delta: number;
+  unitPrice: number | null;
+  customer: string;
+};
 
 /** Limpia una variante igual en el móvil y en el servidor. */
 export const normalizeVariantKey = (k: InvVariantKey): InvVariantKey => {
@@ -98,5 +128,41 @@ export const variantId = (key: InvVariantKey) => {
   return [k.productId, k.size, k.name, k.dorsal, k.patches.join("+"), k.location].join("|");
 };
 
+/** "VINICIUS 7 · Champions" / "Lisa". */
+export const comboLabel = (c: Pick<InvVariantKey, "name" | "dorsal" | "patches">) =>
+  [
+    [c.name.trim().toUpperCase(), c.dorsal.trim()].filter(Boolean).join(" ") || "Lisa",
+    c.patches.join(" + "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+/** "M · VINICIUS 7 · Champions" */
+export const variantLabel = (v: Pick<InvVariantKey, "size" | "name" | "dorsal" | "patches">) =>
+  `${v.size} · ${comboLabel(v)}`;
+
+export const photoSrc = (p: Pick<InvProduct, "id" | "photo" | "photoV">) =>
+  p.photo || (p.photoV ? `/api/foto/${encodeURIComponent(p.id)}?v=${p.photoV}` : "");
+
 export const productTitle = (p: Pick<InvProduct, "team" | "kit" | "season">) =>
   [p.team, p.kit, p.season].filter(Boolean).join(" · ");
+
+/* ---------------------------- Catálogo público ---------------------------- */
+
+export type CatalogOption = {
+  size: string;
+  name: string;
+  dorsal: string;
+  patches: string[];
+  price: number; // 0 = consultar
+  few: boolean; // quedan 1-2
+};
+
+export type CatalogProduct = {
+  id: string;
+  team: string;
+  season: string;
+  kit: string;
+  photoV: string;
+  options: CatalogOption[];
+};

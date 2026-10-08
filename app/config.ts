@@ -31,7 +31,7 @@ export const PATCH_LABELS: Record<string, string> = {
 };
 
 /** Tallas disponibles (pedido e inventario), en el orden en que se muestran. */
-export const SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '16', '18', '20', '22', '24', '26', '28'];
+export const SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '16', '18', '20', '22', '24', '26', '28', '30'];
 
 /* ------------------------------------------------------------------ */
 /*  Listas del inventario (las mismas que la hoja LISTAS del Excel).   */
@@ -69,3 +69,25 @@ export const INV_EXTRA_PATCHES = [
   'Ligue 1',
   'Mundial de Clubes',
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Precios, avisos y catálogo                                          */
+/* ------------------------------------------------------------------ */
+
+/** Suplemento sobre el PVP si la camiseta lleva nombre y/o dorsal (€). */
+export const PRICE_EXTRA_NAME = 5;
+
+/** Suplemento por cada parche (€). */
+export const PRICE_EXTRA_PATCH = 3;
+
+/** «Reponer»: modelos con ventas en los últimos 30 días y este stock o menos. */
+export const LOW_STOCK = 2;
+
+/** «Paradas»: camisetas con stock que no se venden desde hace estos días. */
+export const STALE_DAYS = 60;
+
+/** Título del catálogo público (/catalogo). */
+export const CATALOG_TITLE = 'Camisetas de fútbol';
+
+/** Texto inicial del WhatsApp que manda el cliente desde el catálogo. */
+export const CATALOG_MESSAGE = 'Hola! Me interesan estas camisetas del catálogo:';

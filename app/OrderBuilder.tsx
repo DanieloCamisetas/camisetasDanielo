@@ -6,14 +6,20 @@ import { toBlob, toPng } from "html-to-image";
 import ImageInput from "./ImageInput";
 import OrderSheet from "./OrderSheet";
 import PatchPicker from "./PatchPicker";
+import StockPicker, { inventoryApi } from "./StockPicker";
 import { SIZES, WHATSAPP_MESSAGE, WHATSAPP_NUMBER } from "./config";
 import {
   type Customer,
   type ExtraRow,
   type OrderItem,
+  type InvProduct,
+  type InvVariant,
   type PatchOption,
   emptyCustomer,
+  comboLabel,
   emptyItem,
+  photoSrc,
+  productTitle,
 } from "./types";
 
 // Debe coincidir con el min-width de .sheet en globals.css: la hoja puede
@@ -32,6 +38,8 @@ export default function OrderBuilder({ patchOptions }: { patchOptions: PatchOpti
   const [items, setItems] = useState<OrderItem[]>([emptyItem("item-1")]);
   const [extras, setExtras] = useState<ExtraRow[]>([]);
   const [customer, setCustomer] = useState<Customer>(emptyCustomer);
+  const [stockOpen, setStockOpen] = useState(false);
+  const [deducting, setDeducting] = useState(false);
 
   const [status, setStatus] = useState<{ msg: string; tone: "ok" | "err" } | null>(null);
   const [busy, setBusy] = useState<null | "wa" | "png" | "copy">(null);
@@ -97,6 +105,7 @@ export default function OrderBuilder({ patchOptions }: { patchOptions: PatchOpti
         images: [...prev[idx].images],
         sizes: [...prev[idx].sizes],
         patches: [...prev[idx].patches],
+        stock: prev[idx].stock ? { ...prev[idx].stock!, done: false } : undefined,
       };
       const next = [...prev];
       next.splice(idx + 1, 0, copy);
@@ -111,6 +120,80 @@ export default function OrderBuilder({ patchOptions }: { patchOptions: PatchOpti
       [next[idx], next[target]] = [next[target], next[idx]];
       return next;
     });
+
+  /* --- Inventario: añadir camisetas del stock y descontarlas al vender --- */
+  const addFromStock = (p: InvProduct, v: InvVariant, price: number) => {
+    // Los parches con foto en /public van como imagen; el resto, como nota.
+    const bySrc = new Map(patchOptions.map((o) => [o.label, o.src]));
+    const patchImgs = v.patches.map((l) => bySrc.get(l)).filter(Boolean) as string[];
+    const patchText = v.patches.filter((l) => !bySrc.has(l));
+    const item: OrderItem = {
+      ...emptyItem(uid()),
+      images: [photoSrc(p) || ""],
+      sizes: [v.size],
+      name: v.name,
+      dorsal: v.dorsal,
+      patches: patchImgs.length ? patchImgs : [""],
+      note: patchText.join(" + "),
+      price: price ? String(price) : "",
+      stock: {
+        key: {
+          productId: v.productId,
+          size: v.size,
+          name: v.name,
+          dorsal: v.dorsal,
+          patches: v.patches,
+          location: v.location,
+        },
+        label: `${productTitle(p)} · ${v.size} · ${comboLabel(v)}${v.location ? ` · ${v.location}` : ""}`,
+      },
+    };
+    setItems((prev) => {
+      // Si el pedido solo tiene el artículo vacío inicial, se reemplaza.
+      const onlyEmpty =
+        prev.length === 1 && !prev[0].stock && JSON.stringify({ ...prev[0], id: "" }) ===
+          JSON.stringify({ ...emptyItem(""), id: "" });
+      return onlyEmpty ? [item] : [...prev, item];
+    });
+  };
+
+  const pendingStock = items.filter((it) => it.stock && !it.stock.done);
+
+  const deductStock = async () => {
+    if (!pendingStock.length) return;
+    if (
+      !confirm(
+        `¿Descontar del inventario ${pendingStock.length} ${
+          pendingStock.length === 1 ? "camiseta" : "camisetas"
+        } como vendidas${customer.name.trim() ? ` a ${customer.name.trim()}` : ""}?`,
+      )
+    )
+      return;
+    setDeducting(true);
+    let ok = 0;
+    for (const it of pendingStock) {
+      try {
+        const price = parseFloat(it.price.replace(",", ".").replace(/[^\d.]/g, ""));
+        await inventoryApi({
+          action: "sell",
+          ...it.stock!.key,
+          price: Number.isFinite(price) ? price : "",
+          customer: customer.name.trim(),
+          // Id fijo por artículo: pulsar dos veces no vende dos veces.
+          opId: `order-${it.id}`,
+          productTitle: it.stock!.label.split(" · ").slice(0, 3).join(" · "),
+        });
+        ok++;
+        setItems((prev) =>
+          prev.map((x) => (x.id === it.id && x.stock ? { ...x, stock: { ...x.stock, done: true } } : x)),
+        );
+      } catch (e) {
+        flash(`No se pudo descontar ${it.stock!.label}: ${(e as Error).message}`, "err");
+      }
+    }
+    setDeducting(false);
+    if (ok) flash(`Descontadas ${ok} del inventario ✔`, "ok");
+  };
 
   /* --- Listas por artículo: imágenes, tallas y parches --- */
   const setListValue = (id: string, key: ListKey, index: number, value: string) =>
@@ -346,14 +429,41 @@ export default function OrderBuilder({ patchOptions }: { patchOptions: PatchOpti
                 <h2 className="text-base font-semibold text-zinc-900">Artículos</h2>
                 <p className="eyebrow mt-0.5">Camisetas del pedido</p>
               </div>
-              <button
-                type="button"
-                onClick={addItem}
-                className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-700"
-              >
-                + Añadir artículo
-              </button>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStockOpen(true)}
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:border-amber-500"
+                >
+                  📦 Desde inventario
+                </button>
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-700"
+                >
+                  + Añadir artículo
+                </button>
+              </div>
             </div>
+
+            {pendingStock.length ? (
+              <div className="mb-4 flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 sm:flex-row sm:items-center">
+                <p className="flex-1 text-sm text-emerald-900">
+                  📦 {pendingStock.length}{" "}
+                  {pendingStock.length === 1 ? "camiseta sale" : "camisetas salen"} del inventario.
+                  Cuando el pedido esté cerrado, descuéntalas del stock.
+                </p>
+                <button
+                  type="button"
+                  onClick={deductStock}
+                  disabled={deducting}
+                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {deducting ? "Descontando…" : "Descontar del stock"}
+                </button>
+              </div>
+            ) : null}
 
             <div className="flex flex-col gap-4">
               {items.map((item, idx) => (
@@ -362,8 +472,23 @@ export default function OrderBuilder({ patchOptions }: { patchOptions: PatchOpti
                   className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-3.5"
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-100 font-mono text-xs font-bold text-amber-800">
-                      {idx + 1}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-100 font-mono text-xs font-bold text-amber-800">
+                        {idx + 1}
+                      </span>
+                      {item.stock ? (
+                        <span
+                          className={`truncate rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                            item.stock.done
+                              ? "bg-zinc-200 text-zinc-600"
+                              : "bg-emerald-100 text-emerald-800"
+                          }`}
+                          title={item.stock.label}
+                        >
+                          {item.stock.done ? "✔ Descontada" : "📦 Del inventario"}
+                          {item.stock.key.location ? ` · ${item.stock.key.location}` : ""}
+                        </span>
+                      ) : null}
                     </span>
                     <div className="flex items-center gap-1">
                       <button
@@ -715,6 +840,10 @@ export default function OrderBuilder({ patchOptions }: { patchOptions: PatchOpti
           </div>
         </aside>
       </main>
+
+      {stockOpen ? (
+        <StockPicker onPick={addFromStock} onClose={() => setStockOpen(false)} />
+      ) : null}
 
       {/* Aviso flotante, visible también con la hoja lejos en pantalla */}
       {status ? (

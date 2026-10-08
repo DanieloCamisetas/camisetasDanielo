@@ -249,3 +249,52 @@ body {
   color: #b9b9b9;
   font-size: 12px;
 }
+
+/* ------------------------------------------------------------------ */
+/*  ETIQUETAS QR (/inventario/etiquetas)                               */
+/*  Medidas de las hojas A4 de 21 etiquetas (3×7, 63,5×38,1 mm), tipo  */
+/*  Apli 1273 / Avery L7160. En papel normal también vale (recortar).  */
+/* ------------------------------------------------------------------ */
+.label-sheet {
+  display: grid;
+  grid-template-columns: repeat(3, 63.5mm);
+  grid-auto-rows: 38.1mm;
+  column-gap: 2.5mm;
+  width: calc(3 * 63.5mm + 2 * 2.5mm);
+  background: #ffffff;
+  color: #000000;
+}
+
+.label {
+  box-sizing: border-box;
+  height: 38.1mm;
+  padding: 2.5mm 3mm;
+  display: flex;
+  align-items: center;
+  gap: 2.5mm;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  break-inside: avoid;
+}
+
+.label svg {
+  width: 26mm;
+  height: 26mm;
+  flex-shrink: 0;
+}
+
+@media screen {
+  .label {
+    outline: 1px dashed #d4d4d8;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 15.1mm 7.2mm 0 7.2mm;
+  }
+  body {
+    background: #ffffff !important;
+  }
+}

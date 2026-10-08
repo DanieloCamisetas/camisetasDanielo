@@ -54,6 +54,30 @@ ubicación, con su cantidad. Compartido entre móviles (Postgres en Neon).
 - Las listas (equipos, temporadas, modelos, ubicaciones, parches sin foto) se
   editan en `app/config.ts`. Los parches con foto salen de `/public`.
 
+### Ventas, reservas y más
+
+- **Vender / reservar**: en Contar, toca una fila → «Vender 1» (precio sugerido =
+  PVP + suplementos) o «Reservar 1» (para quién y hasta cuándo). Las reservadas
+  siguen en stock pero no salen como libres ni en el catálogo.
+- **Ventas** (`/inventario/ventas`): ingresos y beneficio del mes, por meses, lo
+  más vendido (90 días), qué reponer, camisetas paradas, reservas activas y
+  últimas ventas (con «Devolver»).
+- **Historial** (`/inventario/historial`): quién contó, vendió o reservó qué y
+  cuándo. Cada móvil elige su nombre la primera vez.
+- **Etiquetas QR** (`/inventario/etiquetas`): una etiqueta por camiseta (hojas
+  A4 de 21, 63,5×38,1 mm). Escanearla en Contar abre su fila exacta.
+- **Catálogo público** (`/catalogo`, sin PIN): lo disponible con foto, tallas y
+  precio; el cliente elige y lo pide por WhatsApp (`WHATSAPP_NUMBER`).
+- **Pedidos**: «📦 Desde inventario» añade camisetas del stock al pedido y
+  «Descontar del stock» las registra como vendidas.
+- **App instalable y sin conexión**: «Añadir a pantalla de inicio». Sin cobertura
+  se sigue contando y los toques se suben solos al volver la señal.
+- **Filtros** por equipo y talla, y **⧉ Duplicar** camiseta en el formulario.
+
+Ajustes en `app/config.ts`: `PRICE_EXTRA_NAME`, `PRICE_EXTRA_PATCH`,
+`LOW_STOCK`, `STALE_DAYS`, `CATALOG_TITLE`, `CATALOG_MESSAGE` y
+`WHATSAPP_NUMBER`.
+
 Configuración:
 
 - Variable `DATABASE_URL` (Vercel → Settings → Environment Variables; en local
