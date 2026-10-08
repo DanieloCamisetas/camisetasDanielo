@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
-    "barcode-detector": "^3.2.2",
     "html-to-image": "^1.11.13",
     "next": "^15.1.0",
     "react": "^19.0.0",

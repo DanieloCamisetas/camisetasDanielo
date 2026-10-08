@@ -19,7 +19,6 @@ import {
   productTitle,
   variantId,
 } from "../types";
-import Scanner from "./Scanner";
 
 const PIN_KEY = "inv-pin";
 
@@ -79,7 +78,6 @@ const emptyProduct = (): InvProduct => ({
   season: INV_SEASONS[0] ?? "",
   kit: INV_KITS[0] ?? "",
   photo: "",
-  barcode: "",
   cost: "",
   price: "",
   notes: "",
@@ -91,6 +89,17 @@ const emptyCustom: Custom = { name: "", dorsal: "", patches: [], location: "" };
 
 type Undo = { key: InvVariantKey; delta: number };
 
+const comboKey = (c: Pick<Custom, "name" | "dorsal" | "patches">) =>
+  [c.name.trim().toUpperCase(), c.dorsal.trim(), [...c.patches].sort().join("+")].join("|");
+
+const comboLabel = (c: Pick<Custom, "name" | "dorsal" | "patches">) =>
+  [
+    [c.name.trim().toUpperCase(), c.dorsal.trim()].filter(Boolean).join(" ") || "Lisa",
+    c.patches.join(" + "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
 export default function Inventory({ patchOptions }: { patchOptions: PatchOption[] }) {
   const [products, setProducts] = useState<InvProduct[]>([]);
   const [variants, setVariants] = useState<InvVariant[]>([]);
@@ -101,15 +110,15 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
   const [subtract, setSubtract] = useState(false);
   const [lastOps, setLastOps] = useState<Undo[]>([]);
   const [query, setQuery] = useState("");
-  const [scanning, setScanning] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<InvProduct | null>(null);
-  const [chooser, setChooser] = useState<{ code: string; ids: string[] } | null>(null);
   const [toast, setToast] = useState<{ msg: string; tone: "ok" | "err" } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const pending = useRef(0);
   const toastTimer = useRef(0);
   const topRef = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   const flash = useCallback((msg: string, tone: "ok" | "err" = "ok") => {
     setToast({ msg, tone });
@@ -224,6 +233,7 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
   const select = (id: string) => {
     setCurrentId(id);
     setCustom(emptyCustom);
+    setEditing(false);
     setSubtract(false);
     topRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -265,53 +275,6 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
       flash(e instanceof Error ? e.message : "Error al borrar", "err");
     }
   };
-
-  /* ------------------------- Código leído ------------------------- */
-
-  const productsRef = useRef(products);
-  productsRef.current = products;
-
-  const handleCode = useCallback(
-    (code: string) => {
-      setScanning(false);
-      const hits = productsRef.current.filter((p) => p.barcode && p.barcode === code);
-      if (hits.length === 1) {
-        beep(1200);
-        setCurrentId(hits[0].id);
-        setCustom(emptyCustom);
-        setSubtract(false);
-        flash(`→ ${productTitle(hits[0])}`);
-      } else {
-        setChooser({ code, ids: hits.map((h) => h.id) });
-      }
-    },
-    [flash],
-  );
-
-  /* Lector Bluetooth/USB: escribe el código como un teclado muy rápido y
-     termina en Enter. Se captura en toda la página salvo dentro de un campo. */
-  useEffect(() => {
-    let buffer = "";
-    let last = 0;
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
-      const now = performance.now();
-      if (now - last > 80) buffer = "";
-      last = now;
-      if (e.key === "Enter") {
-        if (buffer.length >= 4) {
-          e.preventDefault();
-          handleCode(buffer);
-        }
-        buffer = "";
-      } else if (e.key.length === 1) {
-        buffer += e.key;
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [handleCode]);
 
   /* ----------------------------- Datos derivados ----------------------------- */
 
@@ -355,7 +318,6 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
       ? products.filter(
           (p) =>
             normalize(productTitle(p)).includes(q) ||
-            p.barcode.includes(q) ||
             variants.some(
               (v) =>
                 v.productId === p.id && (normalize(v.name).includes(q) || v.dorsal === q),
@@ -364,6 +326,32 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
       : products;
     return [...list].reverse(); // las últimas creadas arriba
   }, [products, variants, query]);
+
+  /* Combinaciones (nombre + dorsal + parches) ya usadas en esta camiseta:
+     un toque para cambiar de una a otra sin volver a escribir. */
+  const combos = useMemo(() => {
+    const map = new Map<string, { name: string; dorsal: string; patches: string[]; qty: number }>();
+    for (const v of currentRows) {
+      const k = comboKey(v);
+      const c = map.get(k);
+      if (c) c.qty += v.qty;
+      else map.set(k, { name: v.name, dorsal: v.dorsal, patches: v.patches, qty: v.qty });
+    }
+    return map;
+  }, [currentRows]);
+  const plainKey = comboKey(emptyCustom);
+  const activeKey = comboKey(custom);
+
+  /* Jugadores ya usados en este equipo: al escribir el nombre se rellena el dorsal. */
+  const players = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!current) return map;
+    for (const v of variants) {
+      if (v.name && v.dorsal && byId.get(v.productId)?.team === current.team && !map.has(v.name))
+        map.set(v.name, v.dorsal);
+    }
+    return map;
+  }, [variants, byId, current]);
 
   const patchImage = useMemo(
     () => new Map(patchOptions.map((o) => [o.label, o.src])),
@@ -388,7 +376,7 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
   const exportCsv = () => {
     const head = [
       "EQUIPO", "TEMPORADA", "MODELO", "TALLA", "NOMBRE", "DORSAL", "PARCHE",
-      "CANTIDAD", "UBICACIÓN", "COSTE (€)", "PVP (€)", "NOTAS", "CÓDIGO",
+      "CANTIDAD", "UBICACIÓN", "COSTE (€)", "PVP (€)", "NOTAS",
     ];
     const rows = [...variants]
       .sort((a, b) => {
@@ -404,7 +392,7 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
         return [
           p.team, p.season, p.kit, v.size, v.name, v.dorsal,
           v.patches.join(" + ") || "Sin parche", v.qty, v.location,
-          p.cost, p.price, p.notes, p.barcode,
+          p.cost, p.price, p.notes,
         ];
       });
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
@@ -444,9 +432,6 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
 
   /* ------------------------------ Vista ------------------------------ */
 
-  const customActive =
-    custom.name || custom.dorsal || custom.patches.length || custom.location;
-
   return (
     <div className="min-h-screen pb-24">
       {/* ---------------- Cabecera ---------------- */}
@@ -484,18 +469,11 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
         <div ref={topRef} className="scroll-mt-20" />
 
         {/* ---------------- Acciones principales ---------------- */}
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setScanning(true)}
-            className="rounded-xl bg-zinc-900 py-4 text-base font-semibold text-white active:scale-[0.98]"
-          >
-            📷 Escanear
-          </button>
+        <div>
           <button
             type="button"
             onClick={() => setDraft(emptyProduct())}
-            className="rounded-xl bg-amber-500 py-4 text-base font-semibold text-zinc-900 active:scale-[0.98]"
+            className="w-full rounded-xl bg-amber-500 py-4 text-base font-semibold text-zinc-900 active:scale-[0.98]"
           >
             + Nueva camiseta
           </button>
@@ -526,83 +504,142 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
               </button>
             </div>
 
-            {/* --- Personalización: se aplica a cada toque --- */}
+            {/* --- ¿Qué lleva? Cada toque de talla suma a esta combinación --- */}
             <div className="rounded-lg bg-zinc-50 p-2.5">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="eyebrow">Personalización</span>
-                {customActive ? (
-                  <button
-                    type="button"
-                    onClick={() => setCustom(emptyCustom)}
-                    className="text-xs font-semibold text-red-600"
-                  >
-                    Quitar todo
-                  </button>
-                ) : (
-                  <span className="text-xs text-zinc-400">Sin nombre ni parches</span>
-                )}
-              </div>
-              <div className="mb-2 grid grid-cols-[1fr_5rem] gap-2">
-                <input
-                  className="input uppercase"
-                  placeholder="Nombre"
-                  autoCapitalize="characters"
-                  value={custom.name}
-                  onChange={(e) => setCustom({ ...custom, name: e.target.value })}
-                />
-                <input
-                  className="input text-center"
-                  placeholder="Dorsal"
-                  inputMode="numeric"
-                  value={custom.dorsal}
-                  onChange={(e) =>
-                    setCustom({ ...custom, dorsal: e.target.value.replace(/\D/g, "").slice(0, 3) })
-                  }
-                />
+              <span className="eyebrow mb-1.5 block">¿Qué lleva?</span>
+              <div className="flex flex-wrap gap-1.5">
+                <Chip
+                  on={activeKey === plainKey && !editing}
+                  onClick={() => {
+                    setCustom({ ...emptyCustom, location: custom.location });
+                    setEditing(false);
+                  }}
+                >
+                  Lisa{combos.get(plainKey) ? ` · ${combos.get(plainKey)!.qty}` : ""}
+                </Chip>
+                {[...combos]
+                  .filter(([k]) => k !== plainKey)
+                  .map(([k, c]) => (
+                    <Chip
+                      key={k}
+                      on={activeKey === k}
+                      onClick={() => {
+                        setCustom({ ...c, location: custom.location });
+                        setEditing(false);
+                      }}
+                    >
+                      {comboLabel(c)} · {c.qty}
+                    </Chip>
+                  ))}
+                {/* Combinación nueva que aún no tiene unidades */}
+                {activeKey !== plainKey && !combos.has(activeKey) ? (
+                  <Chip on onClick={() => setEditing(true)}>
+                    {comboLabel(custom)} · nueva
+                  </Chip>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustom({ ...emptyCustom, location: custom.location });
+                    setEditing(true);
+                    window.setTimeout(() => nameRef.current?.focus(), 50);
+                  }}
+                  className="rounded-full border border-dashed border-zinc-400 px-3 py-1.5 text-sm font-semibold text-zinc-700"
+                >
+                  + Nombre y dorsal
+                </button>
               </div>
 
-              <ChipRow label="Parches">
-                {allPatches.map((label) => {
-                  const on = custom.patches.includes(label);
-                  return (
-                    <Chip
-                      key={label}
-                      on={on}
-                      img={patchImage.get(label)}
-                      onClick={() =>
+              {editing || custom.name || custom.dorsal ? (
+                <div className="mt-2.5 border-t border-zinc-200 pt-2.5">
+                  <div className="grid grid-cols-[1fr_5rem] gap-2">
+                    <input
+                      ref={nameRef}
+                      className="input uppercase"
+                      placeholder="Nombre (opcional)"
+                      autoCapitalize="characters"
+                      list="inv-players"
+                      value={custom.name}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        const known = players.get(name.trim().toUpperCase());
                         setCustom({
                           ...custom,
-                          patches: on
-                            ? custom.patches.filter((p) => p !== label)
-                            : [...custom.patches, label],
-                        })
+                          name,
+                          dorsal: known && !custom.dorsal ? known : custom.dorsal,
+                        });
+                      }}
+                    />
+                    <input
+                      className="input text-center"
+                      placeholder="Dorsal"
+                      inputMode="numeric"
+                      value={custom.dorsal}
+                      onChange={(e) =>
+                        setCustom({ ...custom, dorsal: e.target.value.replace(/\D/g, "").slice(0, 3) })
+                      }
+                    />
+                  </div>
+                  <datalist id="inv-players">
+                    {[...players].map(([n, d]) => (
+                      <option key={n} value={n}>
+                        {d}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+              ) : null}
+
+              {/* Parches siempre a la vista: también hay lisas con parche */}
+              <div className="mt-2.5 border-t border-zinc-200 pt-2.5">
+                <span className="eyebrow mb-1 block">Parches (toca los que lleve)</span>
+                <div className="flex flex-wrap gap-1.5">
+                    {allPatches.map((label) => {
+                      const on = custom.patches.includes(label);
+                      return (
+                        <Chip
+                          key={label}
+                          on={on}
+                          img={patchImage.get(label)}
+                          onClick={() =>
+                            setCustom({
+                              ...custom,
+                              patches: on
+                                ? custom.patches.filter((p) => p !== label)
+                                : [...custom.patches, label],
+                            })
+                          }
+                        >
+                          {label}
+                        </Chip>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <div className="mt-2.5">
+                <ChipRow label="Ubicación (opcional)">
+                  {locationOptions.map((loc) => (
+                    <Chip
+                      key={loc}
+                      on={custom.location === loc}
+                      onClick={() =>
+                        setCustom({ ...custom, location: custom.location === loc ? "" : loc })
                       }
                     >
-                      {label}
+                      {loc}
                     </Chip>
-                  );
-                })}
-              </ChipRow>
-
-              <ChipRow label="Ubicación">
-                {locationOptions.map((loc) => (
-                  <Chip
-                    key={loc}
-                    on={custom.location === loc}
-                    onClick={() =>
-                      setCustom({ ...custom, location: custom.location === loc ? "" : loc })
-                    }
-                  >
-                    {loc}
-                  </Chip>
-                ))}
-              </ChipRow>
+                  ))}
+                </ChipRow>
+              </div>
             </div>
 
             {/* --- Tallas: cada toque = 1 camiseta --- */}
             <div>
-              <p className="eyebrow mb-1.5">
-                {subtract ? "Toca para RESTAR" : "Toca la talla por cada camiseta"}
+              <p className={`mb-1.5 text-sm ${subtract ? "text-red-700" : "text-zinc-600"}`}>
+                {subtract ? "Cada toque RESTA 1 de " : "Cada toque suma 1 de "}
+                <b>{comboLabel(custom)}</b>
+                {custom.location ? ` en ${custom.location}` : ""}
               </p>
               <div className="grid grid-cols-5 gap-1.5">
                 {SIZES.map((s) => {
@@ -695,14 +732,14 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
           </section>
         ) : loaded ? (
           <p className="rounded-xl border border-dashed border-zinc-300 p-4 text-center text-sm text-zinc-500">
-            Escanea una etiqueta, crea una camiseta o elige una de la lista para empezar a contar.
+            Crea una camiseta o elige una de la lista para empezar a contar.
           </p>
         ) : null}
 
         {/* ---------------- Lista de camisetas ---------------- */}
         <input
           className="input"
-          placeholder="Buscar equipo, nombre, dorsal o código…"
+          placeholder="Buscar equipo, nombre o dorsal…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -742,56 +779,6 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
           ) : null}
         </ul>
       </main>
-
-      {/* ---------------- Escáner ---------------- */}
-      {scanning ? <Scanner onDetected={handleCode} onClose={() => setScanning(false)} /> : null}
-
-      {/* ---------------- Código leído: elegir / crear ---------------- */}
-      {chooser ? (
-        <Sheet onClose={() => setChooser(null)}>
-          <p className="eyebrow mb-1">Código leído</p>
-          <p className="mb-3 font-mono text-lg font-semibold">{chooser.code}</p>
-          {chooser.ids.length ? (
-            <>
-              <p className="mb-2 text-sm text-zinc-600">
-                Este código lo comparten varias camisetas. ¿Cuál es?
-              </p>
-              <div className="mb-3 flex max-h-[45vh] flex-col gap-2 overflow-y-auto">
-                {chooser.ids.map((id) => {
-                  const p = byId.get(id);
-                  if (!p) return null;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => {
-                        setChooser(null);
-                        select(id);
-                      }}
-                      className="flex items-center gap-3 rounded-lg border border-zinc-200 p-2 text-left"
-                    >
-                      <Thumb src={p.photo} size="h-12 w-12" />
-                      <span className="font-semibold">{productTitle(p)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <p className="mb-3 text-sm text-zinc-600">Código nuevo. Crea la camiseta:</p>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              setDraft({ ...emptyProduct(), barcode: chooser.code });
-              setChooser(null);
-            }}
-            className="w-full rounded-lg bg-amber-500 py-3 font-semibold text-zinc-900"
-          >
-            + Nueva camiseta con este código
-          </button>
-        </Sheet>
-      ) : null}
 
       {/* ---------------- Formulario de camiseta ---------------- */}
       {draft ? (
@@ -890,15 +877,6 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
                 />
               </Field>
             </div>
-
-            <Field label="Código de barras">
-              <input
-                className="input font-mono"
-                inputMode="numeric"
-                value={draft.barcode}
-                onChange={(e) => setDraft({ ...draft, barcode: e.target.value })}
-              />
-            </Field>
 
             <Field label="Notas">
               <input

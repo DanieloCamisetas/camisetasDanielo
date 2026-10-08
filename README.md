@@ -42,10 +42,10 @@ combinación de equipo, temporada, modelo, talla, nombre, dorsal, parches y
 ubicación, con su cantidad. Compartido entre móviles (Postgres en Neon).
 
 - **Flujo rápido**: «+ Nueva camiseta» (foto, equipo, temporada, modelo) →
-  si llevan personalización, pon nombre/dorsal/parches (se quedan fijados) →
-  un toque en la talla por cada camiseta (+1). «Deshacer» y «modo restar».
-- **Escanear**: con la cámara (iPhone y Android) o con un lector Bluetooth/USB.
-  Un código conocido abre su camiseta; uno nuevo ofrece crearla.
+  elige qué lleva («Lisa» o «+ Nombre / parche») → un toque en la talla por
+  cada camiseta (+1). Las combinaciones ya usadas (p. ej. «VINICIUS 7 ·
+  Champions») quedan como botones para cambiar de una a otra con un toque, y
+  al escribir un nombre ya usado en ese equipo se rellena su dorsal.
 - **Excel**: descarga un CSV con las columnas de la hoja INVENTARIO.
 - Las listas (equipos, temporadas, modelos, ubicaciones, parches sin foto) se
   editan en `app/config.ts`. Los parches con foto salen de `/public`.

@@ -30,7 +30,6 @@ async function db() {
       season TEXT NOT NULL DEFAULT '',
       kit TEXT NOT NULL DEFAULT '',
       photo TEXT NOT NULL DEFAULT '',
-      barcode TEXT NOT NULL DEFAULT '',
       cost TEXT NOT NULL DEFAULT '',
       price TEXT NOT NULL DEFAULT '',
       notes TEXT NOT NULL DEFAULT '',
@@ -64,7 +63,7 @@ async function db() {
 export async function listAll(): Promise<{ products: InvProduct[]; variants: InvVariant[] }> {
   const sql = await db();
   const [products, variants] = await Promise.all([
-    sql`SELECT id, team, season, kit, photo, barcode, cost, price, notes
+    sql`SELECT id, team, season, kit, photo, cost, price, notes
         FROM inv_products ORDER BY created_at`,
     sql`SELECT id, product_id, size, name, dorsal, patches, location, qty
         FROM inv_variants WHERE qty > 0 ORDER BY created_at`,
@@ -88,12 +87,12 @@ export async function listAll(): Promise<{ products: InvProduct[]; variants: Inv
 
 export async function saveProduct(p: InvProduct) {
   const sql = await db();
-  await sql`INSERT INTO inv_products (id, team, season, kit, photo, barcode, cost, price, notes)
-    VALUES (${p.id}, ${p.team}, ${p.season}, ${p.kit}, ${p.photo}, ${p.barcode},
+  await sql`INSERT INTO inv_products (id, team, season, kit, photo, cost, price, notes)
+    VALUES (${p.id}, ${p.team}, ${p.season}, ${p.kit}, ${p.photo},
             ${p.cost}, ${p.price}, ${p.notes})
     ON CONFLICT (id) DO UPDATE SET
       team = EXCLUDED.team, season = EXCLUDED.season, kit = EXCLUDED.kit,
-      photo = EXCLUDED.photo, barcode = EXCLUDED.barcode, cost = EXCLUDED.cost,
+      photo = EXCLUDED.photo, cost = EXCLUDED.cost,
       price = EXCLUDED.price, notes = EXCLUDED.notes`;
 }
 

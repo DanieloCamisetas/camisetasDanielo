@@ -62,7 +62,6 @@ export type InvProduct = {
   season: string; // TEMPORADA
   kit: string; // MODELO (Home, Away…)
   photo: string; // data-URL JPEG pequeña
-  barcode: string;
   cost: string; // COSTE (€)
   price: string; // PVP (€)
   notes: string; // NOTAS

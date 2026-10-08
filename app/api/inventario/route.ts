@@ -59,7 +59,7 @@ export async function GET(req: Request) {
 /**
  * Acciones:
  *  { action: "createPin", pin }                    solo la primera vez
- *  { action: "saveProduct", id, team, season, kit, photo, barcode, cost, price, notes }
+ *  { action: "saveProduct", id, team, season, kit, photo, cost, price, notes }
  *  { action: "deleteProduct", id }
  *  { action: "stock", productId, size, name, dorsal, patches, location, delta }
  */
@@ -95,7 +95,6 @@ export async function POST(req: Request) {
           season: str(body.season, 20),
           kit: str(body.kit, 40),
           photo,
-          barcode: str(body.barcode, 80),
           cost: str(body.cost, 20),
           price: str(body.price, 20),
           notes: str(body.notes, 500),

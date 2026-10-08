@@ -55,7 +55,7 @@ export const INV_TEAMS = [
   'AC Milan',
 ];
 
-export const INV_SEASONS = ['25/26', '24/25', '23/24', '22/23'];
+export const INV_SEASONS = ['26/27', '25/26', '24/25', '23/24', '22/23'];
 
 export const INV_KITS = ['Home', 'Away', 'Third', 'Training', 'Portero', 'Especial'];
 
