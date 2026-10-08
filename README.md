@@ -34,3 +34,26 @@ npm run build && npm start
   captura, porque se convierten a *data URL* y no dependen de CORS.
 - Las imágenes por **URL externa** pueden fallar al exportar si el servidor de
   origen bloquea el acceso (CORS). Si ves un error al generar, sube el archivo.
+
+## Inventario (`/inventario`)
+
+Misma estructura que `Inventario_Camisetas_SIMPLE.xlsx`: una fila por
+combinación de equipo, temporada, modelo, talla, nombre, dorsal, parches y
+ubicación, con su cantidad. Compartido entre móviles (Postgres en Neon).
+
+- **Flujo rápido**: «+ Nueva camiseta» (foto, equipo, temporada, modelo) →
+  si llevan personalización, pon nombre/dorsal/parches (se quedan fijados) →
+  un toque en la talla por cada camiseta (+1). «Deshacer» y «modo restar».
+- **Escanear**: con la cámara (iPhone y Android) o con un lector Bluetooth/USB.
+  Un código conocido abre su camiseta; uno nuevo ofrece crearla.
+- **Excel**: descarga un CSV con las columnas de la hoja INVENTARIO.
+- Las listas (equipos, temporadas, modelos, ubicaciones, parches sin foto) se
+  editan en `app/config.ts`. Los parches con foto salen de `/public`.
+
+Configuración:
+
+- Variable `DATABASE_URL` (Vercel → Settings → Environment Variables; en local
+  en `.env.local`). Las tablas se crean solas.
+- **PIN**: la primera vez que se abre `/inventario` pide crear uno y se guarda
+  (cifrado) en la base de datos. Para cambiarlo, borrar la fila `pin` de la
+  tabla `inv_settings`, o fijar `INVENTORY_PIN` en Vercel (tiene prioridad).

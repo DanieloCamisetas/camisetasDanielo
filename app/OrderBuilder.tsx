@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toBlob, toPng } from "html-to-image";
 import ImageInput from "./ImageInput";
 import OrderSheet from "./OrderSheet";
 import PatchPicker from "./PatchPicker";
-import { WHATSAPP_MESSAGE, WHATSAPP_NUMBER } from "./config";
+import { SIZES, WHATSAPP_MESSAGE, WHATSAPP_NUMBER } from "./config";
 import {
   type Customer,
   type ExtraRow,
@@ -18,7 +19,6 @@ import {
 // Debe coincidir con el min-width de .sheet en globals.css: la hoja puede
 // crecer por encima de este valor si el contenido lo necesita.
 const SHEET_MIN_WIDTH = 660;
-const SIZES = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "16", "18", "20", "22", "24", "26", "28"];
 
 const uid = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
@@ -324,8 +324,14 @@ export default function OrderBuilder({ patchOptions }: { patchOptions: PatchOpti
               <p className="eyebrow">Generador de imagen para proveedor</p>
             </div>
           </div>
-          <div className="hidden items-center gap-2 sm:flex">
-            <span className="eyebrow">{filledItems.length} artículos</span>
+          <div className="flex items-center gap-3">
+            <span className="eyebrow hidden sm:inline">{filledItems.length} artículos</span>
+            <Link
+              href="/inventario"
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:border-amber-500 hover:text-amber-700"
+            >
+              Inventario
+            </Link>
           </div>
         </div>
       </header>

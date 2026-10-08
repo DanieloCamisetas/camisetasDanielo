@@ -50,3 +50,53 @@ export const emptyCustomer: Customer = {
   address: "",
   postalCode: "",
 };
+
+/**
+ * Inventario (misma estructura que la hoja INVENTARIO del Excel).
+ * Producto = la camiseta base (equipo + temporada + modelo).
+ * Variante = una fila del Excel: talla + personalización + cantidad.
+ */
+export type InvProduct = {
+  id: string;
+  team: string; // EQUIPO
+  season: string; // TEMPORADA
+  kit: string; // MODELO (Home, Away…)
+  photo: string; // data-URL JPEG pequeña
+  barcode: string;
+  cost: string; // COSTE (€)
+  price: string; // PVP (€)
+  notes: string; // NOTAS
+};
+
+export type InvVariantKey = {
+  productId: string;
+  size: string; // TALLA
+  name: string; // NOMBRE
+  dorsal: string; // DORSAL
+  patches: string[]; // PARCHE(S), por nombre
+  location: string; // UBICACIÓN
+};
+
+export type InvVariant = InvVariantKey & { id: string; qty: number };
+
+/** Limpia una variante igual en el móvil y en el servidor. */
+export const normalizeVariantKey = (k: InvVariantKey): InvVariantKey => {
+  const clean = (v: string, max: number) => v.trim().replace(/\|/g, " ").slice(0, max);
+  return {
+    productId: clean(k.productId, 80),
+    size: clean(k.size, 20),
+    name: clean(k.name, 40).toUpperCase(),
+    dorsal: clean(k.dorsal, 4),
+    patches: [...new Set(k.patches.map((p) => clean(p, 60)).filter(Boolean))].sort().slice(0, 10),
+    location: clean(k.location, 30),
+  };
+};
+
+/** Id determinista de una variante: misma combinación = misma fila. */
+export const variantId = (key: InvVariantKey) => {
+  const k = normalizeVariantKey(key);
+  return [k.productId, k.size, k.name, k.dorsal, k.patches.join("+"), k.location].join("|");
+};
+
+export const productTitle = (p: Pick<InvProduct, "team" | "kit" | "season">) =>
+  [p.team, p.kit, p.season].filter(Boolean).join(" · ");
