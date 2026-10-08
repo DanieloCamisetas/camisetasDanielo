@@ -35,6 +35,7 @@ async function db() {
       notes TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`;
+    await sql`ALTER TABLE inv_products ADD COLUMN IF NOT EXISTS barcode TEXT NOT NULL DEFAULT ''`;
     await sql`CREATE TABLE IF NOT EXISTS inv_variants (
       id TEXT PRIMARY KEY,
       product_id TEXT NOT NULL REFERENCES inv_products(id) ON DELETE CASCADE,
@@ -63,7 +64,7 @@ async function db() {
 export async function listAll(): Promise<{ products: InvProduct[]; variants: InvVariant[] }> {
   const sql = await db();
   const [products, variants] = await Promise.all([
-    sql`SELECT id, team, season, kit, photo, cost, price, notes
+    sql`SELECT id, team, season, kit, photo, barcode, cost, price, notes
         FROM inv_products ORDER BY created_at`,
     sql`SELECT id, product_id, size, name, dorsal, patches, location, qty
         FROM inv_variants WHERE qty > 0 ORDER BY created_at`,
@@ -87,12 +88,12 @@ export async function listAll(): Promise<{ products: InvProduct[]; variants: Inv
 
 export async function saveProduct(p: InvProduct) {
   const sql = await db();
-  await sql`INSERT INTO inv_products (id, team, season, kit, photo, cost, price, notes)
-    VALUES (${p.id}, ${p.team}, ${p.season}, ${p.kit}, ${p.photo},
+  await sql`INSERT INTO inv_products (id, team, season, kit, photo, barcode, cost, price, notes)
+    VALUES (${p.id}, ${p.team}, ${p.season}, ${p.kit}, ${p.photo}, ${p.barcode},
             ${p.cost}, ${p.price}, ${p.notes})
     ON CONFLICT (id) DO UPDATE SET
       team = EXCLUDED.team, season = EXCLUDED.season, kit = EXCLUDED.kit,
-      photo = EXCLUDED.photo, cost = EXCLUDED.cost,
+      photo = EXCLUDED.photo, barcode = EXCLUDED.barcode, cost = EXCLUDED.cost,
       price = EXCLUDED.price, notes = EXCLUDED.notes`;
 }
 
@@ -122,13 +123,15 @@ export async function addStock(k: InvVariantKey, delta: number): Promise<number>
 const hashPin = (pin: string, salt: string) =>
   createHash("sha256").update(`${salt}:${pin}`).digest("hex");
 
-let cachedPin: string | null = null; // "salt:hash"
+// Caché corta: evita una consulta por toque, pero un cambio de PIN se nota en 1 min.
+let cachedPin: { value: string | null; at: number } | null = null; // value = "salt:hash"
 
 async function storedPin(): Promise<string | null> {
-  if (cachedPin) return cachedPin;
+  if (cachedPin && Date.now() - cachedPin.at < 60_000) return cachedPin.value;
   const sql = await db();
   const rows = (await sql`SELECT value FROM inv_settings WHERE key = 'pin'`) as { value: string }[];
-  return (cachedPin = rows[0]?.value ?? null);
+  cachedPin = { value: rows[0]?.value ?? null, at: Date.now() };
+  return cachedPin.value;
 }
 
 /** "none" = aún no hay PIN (primera vez), "ok" o "bad". */

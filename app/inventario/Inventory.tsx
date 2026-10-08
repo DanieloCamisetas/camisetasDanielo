@@ -19,6 +19,7 @@ import {
   productTitle,
   variantId,
 } from "../types";
+import Scanner from "./Scanner";
 
 const PIN_KEY = "inv-pin";
 
@@ -78,6 +79,7 @@ const emptyProduct = (): InvProduct => ({
   season: INV_SEASONS[0] ?? "",
   kit: INV_KITS[0] ?? "",
   photo: "",
+  barcode: "",
   cost: "",
   price: "",
   notes: "",
@@ -111,6 +113,10 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
   const [lastOps, setLastOps] = useState<Undo[]>([]);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState(false);
+  // Para qué se abre el escáner: buscar, rellenar el formulario o asignar a la camiseta activa.
+  const [scanMode, setScanMode] = useState<null | "find" | "draft" | "assign">(null);
+  const [found, setFound] = useState<{ code: string; ids: string[] } | null>(null);
+  const [assignQuery, setAssignQuery] = useState("");
   const [draft, setDraft] = useState<InvProduct | null>(null);
   const [toast, setToast] = useState<{ msg: string; tone: "ok" | "err" } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -276,6 +282,91 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
     }
   };
 
+  /* ------------------------- Código de barras ------------------------- */
+
+  const assignCode = useCallback(
+    async (product: InvProduct, code: string) => {
+      const updated = { ...product, barcode: code };
+      try {
+        await api({ action: "saveProduct", ...updated });
+        setProducts((ps) => ps.map((p) => (p.id === product.id ? updated : p)));
+        flash(`Código guardado en ${productTitle(product)}`);
+        return true;
+      } catch (e) {
+        flash(e instanceof Error ? e.message : "Error al guardar el código", "err");
+        return false;
+      }
+    },
+    [api, flash],
+  );
+
+  // Refs para leer el estado actual desde el lector (callbacks de larga vida).
+  const live = useRef({ products, current: null as InvProduct | null, scanMode });
+  live.current = {
+    products,
+    current: products.find((p) => p.id === currentId) ?? null,
+    scanMode,
+  };
+
+  const handleCode = useCallback(
+    (raw: string) => {
+      const code = raw.replace(/\s/g, "");
+      const { products: ps, current: cur, scanMode: mode } = live.current;
+      setScanMode(null);
+      if (!code) return;
+
+      if (mode === "draft") {
+        setDraft((d) => (d ? { ...d, barcode: code } : d));
+        return;
+      }
+      if (mode === "assign" && cur) {
+        assignCode(cur, code);
+        return;
+      }
+
+      // Buscar: varias camisetas pueden compartir código → se elige.
+      const hits = ps.filter((p) => p.barcode === code);
+      if (hits.length === 1) {
+        beep(1200);
+        setCurrentId(hits[0].id);
+        setCustom(emptyCustom);
+        setEditing(false);
+        setSubtract(false);
+        flash(`→ ${productTitle(hits[0])}`);
+        topRef.current?.scrollIntoView({ behavior: "smooth" });
+      } else {
+        setAssignQuery("");
+        setFound({ code, ids: hits.map((h) => h.id) });
+      }
+    },
+    [assignCode, flash],
+  );
+
+  /* Lector Bluetooth/USB: escribe el código como un teclado muy rápido y
+     termina en Enter. Se captura en toda la página salvo dentro de un campo. */
+  useEffect(() => {
+    let buffer = "";
+    let last = 0;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
+      const now = performance.now();
+      if (now - last > 80) buffer = "";
+      last = now;
+      if (e.key === "Enter") {
+        if (buffer.length >= 4) {
+          e.preventDefault();
+          handleCode(buffer);
+        }
+        buffer = "";
+      } else if (e.key.length === 1) {
+        buffer += e.key;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleCode]);
+
   /* ----------------------------- Datos derivados ----------------------------- */
 
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
@@ -318,6 +409,7 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
       ? products.filter(
           (p) =>
             normalize(productTitle(p)).includes(q) ||
+            (!!p.barcode && p.barcode.includes(q)) ||
             variants.some(
               (v) =>
                 v.productId === p.id && (normalize(v.name).includes(q) || v.dorsal === q),
@@ -376,7 +468,7 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
   const exportCsv = () => {
     const head = [
       "EQUIPO", "TEMPORADA", "MODELO", "TALLA", "NOMBRE", "DORSAL", "PARCHE",
-      "CANTIDAD", "UBICACIÓN", "COSTE (€)", "PVP (€)", "NOTAS",
+      "CANTIDAD", "UBICACIÓN", "COSTE (€)", "PVP (€)", "NOTAS", "CÓDIGO",
     ];
     const rows = [...variants]
       .sort((a, b) => {
@@ -392,7 +484,7 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
         return [
           p.team, p.season, p.kit, v.size, v.name, v.dorsal,
           v.patches.join(" + ") || "Sin parche", v.qty, v.location,
-          p.cost, p.price, p.notes,
+          p.cost, p.price, p.notes, p.barcode,
         ];
       });
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
@@ -469,11 +561,18 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
         <div ref={topRef} className="scroll-mt-20" />
 
         {/* ---------------- Acciones principales ---------------- */}
-        <div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setScanMode("find")}
+            className="rounded-xl bg-zinc-900 py-4 text-base font-semibold text-white active:scale-[0.98]"
+          >
+            📷 Buscar por código
+          </button>
           <button
             type="button"
             onClick={() => setDraft(emptyProduct())}
-            className="w-full rounded-xl bg-amber-500 py-4 text-base font-semibold text-zinc-900 active:scale-[0.98]"
+            className="rounded-xl bg-amber-500 py-4 text-base font-semibold text-zinc-900 active:scale-[0.98]"
           >
             + Nueva camiseta
           </button>
@@ -494,6 +593,15 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
                   {[current.kit, current.season].filter(Boolean).join(" · ")}
                 </p>
                 <p className="eyebrow">{unitsOf(current.id)} uds</p>
+                <button
+                  type="button"
+                  onClick={() => setScanMode("assign")}
+                  className={`mt-1 rounded-md text-xs font-semibold ${
+                    current.barcode ? "font-mono text-zinc-500" : "text-amber-700"
+                  }`}
+                >
+                  {current.barcode ? `▮▯▮ ${current.barcode}` : "📷 Añadir código de barras"}
+                </button>
               </div>
               <button
                 type="button"
@@ -732,14 +840,14 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
           </section>
         ) : loaded ? (
           <p className="rounded-xl border border-dashed border-zinc-300 p-4 text-center text-sm text-zinc-500">
-            Crea una camiseta o elige una de la lista para empezar a contar.
+            Escanea la etiqueta, crea una camiseta o elige una de la lista para empezar a contar.
           </p>
         ) : null}
 
         {/* ---------------- Lista de camisetas ---------------- */}
         <input
           className="input"
-          placeholder="Buscar equipo, nombre o dorsal…"
+          placeholder="Buscar equipo, nombre, dorsal o código…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -779,6 +887,110 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
           ) : null}
         </ul>
       </main>
+
+      {/* ---------------- Escáner ---------------- */}
+      {scanMode ? <Scanner onDetected={handleCode} onClose={() => setScanMode(null)} /> : null}
+
+      {/* ---------------- Resultado de un código ---------------- */}
+      {found ? (
+        <Sheet onClose={() => setFound(null)}>
+          <p className="eyebrow mb-1">Código leído</p>
+          <p className="mb-3 font-mono text-lg font-semibold">{found.code}</p>
+
+          {found.ids.length ? (
+            <>
+              <p className="mb-2 text-sm text-zinc-600">
+                {found.ids.length} camisetas tienen este código. ¿Cuál es?
+              </p>
+              <div className="mb-3 flex max-h-[45vh] flex-col gap-2 overflow-y-auto">
+                {found.ids.map((id) => {
+                  const p = byId.get(id);
+                  if (!p) return null;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setFound(null);
+                        select(id);
+                      }}
+                      className="flex items-center gap-3 rounded-lg border border-zinc-200 p-2 text-left active:bg-amber-50"
+                    >
+                      <Thumb src={p.photo} size="h-14 w-14" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold">{p.team}</span>
+                        <span className="block truncate text-sm text-zinc-600">
+                          {[p.kit, p.season].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
+                      <span className="px-1 font-bold">{unitsOf(p.id)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <p className="mb-3 text-sm text-zinc-600">Ninguna camiseta tiene este código todavía.</p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setDraft({ ...emptyProduct(), barcode: found.code });
+              setFound(null);
+            }}
+            className="mb-3 w-full rounded-lg bg-amber-500 py-3 font-semibold text-zinc-900"
+          >
+            + Nueva camiseta con este código
+          </button>
+
+          {/* Poner este código a una camiseta que ya existe */}
+          <div className="border-t border-zinc-200 pt-3">
+            <p className="eyebrow mb-1.5">…o pónselo a una que ya existe</p>
+            <input
+              className="input mb-2"
+              placeholder="Buscar equipo…"
+              value={assignQuery}
+              onChange={(e) => setAssignQuery(e.target.value)}
+            />
+            <div className="flex max-h-[35vh] flex-col gap-1.5 overflow-y-auto">
+              {products
+                .filter(
+                  (p) =>
+                    !found.ids.includes(p.id) &&
+                    normalize(productTitle(p)).includes(normalize(assignQuery.trim())),
+                )
+                .reverse()
+                .map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={async () => {
+                      if (
+                        p.barcode &&
+                        !confirm(`${productTitle(p)} ya tiene el código ${p.barcode}. ¿Cambiarlo?`)
+                      )
+                        return;
+                      if (await assignCode(p, found.code)) {
+                        setFound(null);
+                        select(p.id);
+                      }
+                    }}
+                    className="flex items-center gap-2 rounded-lg border border-zinc-200 p-1.5 text-left active:bg-amber-50"
+                  >
+                    <Thumb src={p.photo} size="h-10 w-10" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {productTitle(p)}
+                    </span>
+                    {p.barcode ? (
+                      <span className="text-[10px] text-zinc-400">ya tiene código</span>
+                    ) : null}
+                  </button>
+                ))}
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
 
       {/* ---------------- Formulario de camiseta ---------------- */}
       {draft ? (
@@ -877,6 +1089,25 @@ export default function Inventory({ patchOptions }: { patchOptions: PatchOption[
                 />
               </Field>
             </div>
+
+            <Field label="Código de barras">
+              <div className="flex gap-2">
+                <input
+                  className="input font-mono"
+                  inputMode="numeric"
+                  placeholder="Escanéalo o escríbelo"
+                  value={draft.barcode}
+                  onChange={(e) => setDraft({ ...draft, barcode: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setScanMode("draft")}
+                  className="shrink-0 rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white"
+                >
+                  📷
+                </button>
+              </div>
+            </Field>
 
             <Field label="Notas">
               <input

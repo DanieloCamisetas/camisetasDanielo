@@ -62,6 +62,7 @@ export type InvProduct = {
   season: string; // TEMPORADA
   kit: string; // MODELO (Home, Away…)
   photo: string; // data-URL JPEG pequeña
+  barcode: string; // código de la etiqueta (varias camisetas pueden compartirlo)
   cost: string; // COSTE (€)
   price: string; // PVP (€)
   notes: string; // NOTAS

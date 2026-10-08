@@ -46,6 +46,10 @@ ubicación, con su cantidad. Compartido entre móviles (Postgres en Neon).
   cada camiseta (+1). Las combinaciones ya usadas (p. ej. «VINICIUS 7 ·
   Champions») quedan como botones para cambiar de una a otra con un toque, y
   al escribir un nombre ya usado en ese equipo se rellena su dorsal.
+- **Código de barras = buscador**: «📷 Buscar por código» abre la camiseta (si
+  varias comparten código, eliges cuál). Si el código es nuevo, se crea una
+  camiseta o se asigna a una existente. A una camiseta ya creada se le añade con
+  «📷 Añadir código de barras». También vale un lector Bluetooth/USB.
 - **Excel**: descarga un CSV con las columnas de la hoja INVENTARIO.
 - Las listas (equipos, temporadas, modelos, ubicaciones, parches sin foto) se
   editan en `app/config.ts`. Los parches con foto salen de `/public`.
