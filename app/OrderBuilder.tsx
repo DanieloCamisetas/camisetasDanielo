@@ -7,6 +7,7 @@ import ImageInput from "./ImageInput";
 import OrderSheet from "./OrderSheet";
 import PatchPicker from "./PatchPicker";
 import StockPicker, { inventoryApi } from "./StockPicker";
+import { clearDraft, loadDraft, saveDraft } from "./draftStore";
 import { SIZES, WHATSAPP_MESSAGE, WHATSAPP_NUMBER } from "./config";
 import {
   type Customer,
@@ -54,6 +55,39 @@ export default function OrderBuilder({ patchOptions }: { patchOptions: PatchOpti
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+
+  /* --- Borrador persistente: el pedido sobrevive a cerrar la página --- */
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    loadDraft<{ items: OrderItem[]; extras: ExtraRow[]; customer: Customer }>().then((d) => {
+      if (cancelled) return;
+      if (d?.items?.length) {
+        setItems(d.items);
+        setExtras(d.extras ?? []);
+        setCustomer({ ...emptyCustomer, ...d.customer });
+      }
+      setDraftLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    // No guardar hasta haber cargado: si no, el pedido vacío inicial pisaría el borrador.
+    if (!draftLoaded) return;
+    const t = window.setTimeout(() => saveDraft({ items, extras, customer }), 400);
+    return () => window.clearTimeout(t);
+  }, [draftLoaded, items, extras, customer]);
+
+  const newOrder = () => {
+    if (!confirm("¿Empezar un pedido nuevo? Se borrará el pedido actual.")) return;
+    setItems([emptyItem(uid())]);
+    setExtras([]);
+    setCustomer(emptyCustomer);
+    clearDraft();
+  };
 
   /* --- Ajuste de la vista previa al ancho disponible ---
      Se mide el tamaño REAL de la hoja (offsetWidth/Height no se ven afectados
@@ -409,6 +443,13 @@ export default function OrderBuilder({ patchOptions }: { patchOptions: PatchOpti
           </div>
           <div className="flex items-center gap-3">
             <span className="eyebrow hidden sm:inline">{filledItems.length} artículos</span>
+            <button
+              type="button"
+              onClick={newOrder}
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:border-red-400 hover:text-red-600"
+            >
+              Nuevo pedido
+            </button>
             <Link
               href="/inventario"
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:border-amber-500 hover:text-amber-700"
